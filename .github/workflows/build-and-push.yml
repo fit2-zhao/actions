@@ -63,6 +63,27 @@ jobs:
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
+      - name: Set up Maven
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          maven-version: '3.8.1'
+          distribution: ''
+      - name: Push JAR to Maven Repository
+        run: |
+          mvn deploy:deploy-file \
+            -Dfile=${{ env.JAR_FILE }} \
+            -DrepositoryId=${{ secrets.MAVEN_REPO_ID }} \
+            -Durl=${{ secrets.MAVEN_REPO_URL }} \
+            -DgroupId=io.cordys \
+            -DartifactId=cordys-crm-xpack \
+            -Dversion=${{ env.JAR_VERSION }} \
+            -Dpackaging=jar \
+            -DgeneratePom=true
+        env:
+          MAVEN_USER: ${{ secrets.MAVEN_REPO_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_REPO_PASSWORD }}
+
       # Step 7: 拉取基础镜像
       - name: Pull Docker Image
         run: |
