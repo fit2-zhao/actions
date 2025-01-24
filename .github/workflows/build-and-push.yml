@@ -71,6 +71,18 @@ jobs:
           distribution: 'temurin'
       - name: Push JAR to Maven Repository
         run: |
+          echo "mvn deploy:deploy-file \
+                -Dfile=${{ env.JAR_FILE }} \
+                -DrepositoryId=${{ secrets.MAVEN_REPO_ID }} \
+                -Durl=${{ secrets.MAVEN_REPO_URL }} \
+                -DgroupId=io.cordys \
+                -DartifactId=cordys-crm-xpack \
+                -Dversion=${{ env.JAR_VERSION }} \
+                -Dpackaging=jar \
+                -DgeneratePom=true \
+                -Dusername=${{ secrets.MAVEN_REPO_USERNAME }} \
+                -Dpassword=${{ secrets.MAVEN_REPO_PASSWORD }}"
+                
           mvn deploy:deploy-file \
             -Dfile=${{ env.JAR_FILE }} \
             -DrepositoryId=${{ secrets.MAVEN_REPO_ID }} \
