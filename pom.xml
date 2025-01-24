@@ -91,7 +91,7 @@
     <distributionManagement>
         <repository>
             <id>cordys-public</id>
-            <url>https://repository.fit2cloud.com/repository/cordys/</url>
+            <url>https://repository.fit2cloud.com/repository/public/</url>
         </repository>
     </distributionManagement>
     <repositories>
@@ -101,7 +101,7 @@
         </repository>
         <repository>
             <id>cordys-public</id>
-            <url>https://repository.fit2cloud.com/repository/cordys/</url>
+            <url>https://repository.fit2cloud.com/repository/public/</url>
         </repository>
     </repositories>
     <pluginRepositories>
