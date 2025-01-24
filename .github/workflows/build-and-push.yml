@@ -56,21 +56,22 @@ jobs:
           echo "JAR_FILE=${JAR_FILE}" >> $GITHUB_ENV
 
       # Step 6: 登录 Docker Registry（私有镜像需要）
-      - name: Log in to Docker Registry
-        uses: docker/login-action@v2
+      - name: Login to FIT2CLOUD Registry
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
+          username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
+          password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
       # Step 7: 拉取基础镜像
       - name: Pull Docker Image
         run: |
-          docker pull <your-docker-registry>/<your-docker-image>:<tag>
+          docker pull ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm:${{ github.event.inputs.dockerImageTag }}
 
       # Step 8: 创建一个临时容器
       - name: Create a container from the image
         run: |
-          docker create --name temp-container <your-docker-registry>/<your-docker-image>:<tag>
+          docker create --name temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
 
       # Step 9: 将编译好的 JAR 文件复制到容器中
       - name: Copy JAR to container
@@ -80,12 +81,12 @@ jobs:
       # Step 10: 提交容器为新的镜像
       - name: Commit the updated container to a new image
         run: |
-          docker commit temp-container <your-docker-registry>/<your-docker-image>:${{ github.event.inputs.dockerImageTag }}
+          docker commit temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
 
       # Step 11: 推送新的镜像到指定位置
       - name: Push updated Docker Image
         run: |
-          docker push <your-docker-registry>/<your-docker-image>:${{ github.event.inputs.dockerImageTag }}
+          docker push ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
 
       # Step 12: 清理临时容器
       - name: Remove temporary container
