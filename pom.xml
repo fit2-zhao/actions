@@ -10,13 +10,13 @@
     </parent>
 
     <artifactId>cordys-crm-xpack</artifactId>
-    <version>${revision}</version>
+    <version>1.0.x</version>
 
     <dependencies>
         <dependency>
             <groupId>io.cordys</groupId>
             <artifactId>crm</artifactId>
-            <version>${revision}</version>
+            <version>1.0.x</version>
         </dependency>
     </dependencies>
 
