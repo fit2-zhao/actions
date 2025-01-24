@@ -45,7 +45,7 @@ jobs:
       # Step 4: 编译工程 JAR 包
       - name: Build JAR
         run: |
-          mvn clean package -DskipTests
+          ./mvnw clean package -DskipTests
 
       # Step 5: 获取生成的 JAR 文件名
       - name: Get JAR file version
