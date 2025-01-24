@@ -90,8 +90,8 @@
     </build>
     <distributionManagement>
         <repository>
-            <id>public</id>
-            <url>https://repository.fit2cloud.com/repository/public/</url>
+            <id>cordys-public</id>
+            <url>https://repository.fit2cloud.com/repository/cordys/</url>
         </repository>
     </distributionManagement>
     <repositories>
