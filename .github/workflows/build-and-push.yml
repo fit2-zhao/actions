@@ -1,7 +1,5 @@
 name: build-and-push-xpack
 
-run-name: 构建镜像并推送仓库 ${{ github.event.inputs.dockerImageTag }} (${{ FIT2CLOUD_REGISTRY_HOST }})
-
 on:
   workflow_dispatch:
     inputs:
