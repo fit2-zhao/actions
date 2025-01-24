@@ -68,7 +68,7 @@ jobs:
         with:
           java-version: '21'
           maven-version: '3.8.1'
-          distribution: ''
+          distribution: 'temurin'
       - name: Push JAR to Maven Repository
         run: |
           mvn deploy:deploy-file \
