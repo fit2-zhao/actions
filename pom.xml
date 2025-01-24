@@ -90,7 +90,7 @@
     </build>
     <distributionManagement>
         <repository>
-            <id>cordys-public</id>
+            <id>public</id>
             <url>https://repository.fit2cloud.com/repository/public/</url>
         </repository>
     </distributionManagement>
@@ -110,7 +110,7 @@
             <url>https://repo.maven.apache.org/maven2</url>
         </pluginRepository>
         <pluginRepository>
-            <id>cordys-public</id>
+            <id>public</id>
             <url>https://repository.fit2cloud.com/repository/public/</url>
         </pluginRepository>
     </pluginRepositories>
