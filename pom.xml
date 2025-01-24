@@ -111,7 +111,7 @@
         </pluginRepository>
         <pluginRepository>
             <id>cordys-public</id>
-            <url>https://repository.fit2cloud.com/repository/cordys/</url>
+            <url>https://repository.fit2cloud.com/repository/public/</url>
         </pluginRepository>
     </pluginRepositories>
 </project>
