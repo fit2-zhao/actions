@@ -52,13 +52,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm-xpack
-          token: ${{ secrets.GH_TOKEN }}  # 使用 GitHub token 进行身份验证
+          token: ${{ secrets.GH_TOKEN }}
 
       # Step 4.2: 切换到 `cordys-crm` 目录，确保正确获取文件
       - name: Change to cordys-crm-xpack directory
-        run: |
-          cd cordys-crm-xpack
-          ls -la  # 列出目录结构，检查文件是否正确拉取
+        run: ls -la
 
       # Step 5: 编译工程 JAR 包
       - name: Build JAR
