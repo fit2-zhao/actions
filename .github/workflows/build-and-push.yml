@@ -73,3 +73,9 @@ jobs:
       - name: Docker Buildx (build-and-push)
         run: |
           docker buildx build --output "type=image,push=true" ${{ steps.prepare.outputs.buildx_args }} -f installer/Dockerfile
+
+      - name: Create Tag
+        if: success()
+        run: |
+          git tag -a ${{ github.event.inputs.dockerImageTag }} -m "Release ${{ github.event.inputs.dockerImageTag }}"
+          git push origin ${{ github.event.inputs.dockerImageTag }}
