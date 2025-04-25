@@ -37,15 +37,26 @@ jobs:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}  # 使用 GitHub token
 
+        # 创建或更新标签
       - name: Change to cordys-crm directory
         run: ls -la
-      - name: Create Tag
+      - name: Create or Re-create Tag
         if: success()
         run: |
           git config --global user.name 'fit2-zhao'
           git config --global user.email 'yong.zhao@fit2cloud.com'
+
+          # 检查标签是否存在
+          if git tag -l "${{ github.event.inputs.dockerImageTag }}" | grep -q "${{ github.event.inputs.dockerImageTag }}"; then
+            echo "标签 ${{ github.event.inputs.dockerImageTag }} 已存在，正在删除..."
+            git tag -d ${{ github.event.inputs.dockerImageTag }}
+            git push origin :refs/tags/${{ github.event.inputs.dockerImageTag }}
+          fi
+
+          # 创建和推送新标签
           git tag -a ${{ github.event.inputs.dockerImageTag }} -m "Release ${{ github.event.inputs.dockerImageTag }}"
           git push origin ${{ github.event.inputs.dockerImageTag }}
+
       - name: Prepare
         id: prepare
         run: |
