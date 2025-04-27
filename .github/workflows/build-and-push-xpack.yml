@@ -1,22 +1,22 @@
 name: build-and-push-xpack
 
-#on:
-#  workflow_dispatch:
-#    inputs:
-#      dockerImageTag:
-#        description: 'Docker Image Tag'
-#        required: true
-#        default: 'v1.0.0-dev'
-#      architecture:
-#        description: 'Target Architecture'
-#        required: true
-#        default: 'linux/amd64'
-#        type: choice
-#        options:
-#          - linux/amd64
-#          - linux/arm64
-#          - linux/amd64,linux/arm64
-#
+on:
+  workflow_dispatch:
+    inputs:
+      dockerImageTag:
+        description: 'Docker Image Tag'
+        required: true
+        default: 'v1.0.0-dev'
+      architecture:
+        description: 'Target Architecture'
+        required: true
+        default: 'linux/amd64'
+        type: choice
+        options:
+          - linux/amd64
+          - linux/arm64
+          - linux/amd64,linux/arm64
+
 #jobs:
 #  build-and-update:
 #    runs-on: ubuntu-latest

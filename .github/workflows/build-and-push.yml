@@ -2,34 +2,34 @@ name: build-and-push
 
 run-name: 构建镜像并推送仓库 ${{ github.event.inputs.dockerImageTag }} (${{ github.event.inputs.registry }})
 
-#on:
-#  workflow_dispatch:
-#    inputs:
-#      dockerImageTag:
-#        description: 'Docker Image Tag'
-#        default: 'v1.0.0-dev'
-#        required: true
-#      EXECUTE_START_SCRIP:
-#        description: 'All in'
-#        default: 'true'
-#        required: true
-#      architecture:
-#        description: 'Architecture'
-#        required: true
-#        default: 'linux/amd64'
-#        type: choice
-#        options:
-#          - linux/amd64
-#          - linux/arm64
-#          - linux/amd64,linux/arm64
-#      registry:
-#        description: 'Push To Registry'
-#        required: true
-#        default: 'fit2cloud-registry'
-#        type: choice
-#        options:
-#          - fit2cloud-registry
-#
+on:
+  workflow_dispatch:
+    inputs:
+      dockerImageTag:
+        description: 'Docker Image Tag'
+        default: 'v1.0.0-dev'
+        required: true
+      EXECUTE_START_SCRIP:
+        description: 'All in'
+        default: 'true'
+        required: true
+      architecture:
+        description: 'Architecture'
+        required: true
+        default: 'linux/amd64'
+        type: choice
+        options:
+          - linux/amd64
+          - linux/arm64
+          - linux/amd64,linux/arm64
+      registry:
+        description: 'Push To Registry'
+        required: true
+        default: 'fit2cloud-registry'
+        type: choice
+        options:
+          - fit2cloud-registry
+
 #jobs:
 #  build-and-push-to-fit2cloud-registry:
 #    if: ${{ contains(github.event.inputs.registry, 'fit2cloud') }}
