@@ -7,6 +7,10 @@ on:
         description: 'Docker Image Tag'
         required: true
         default: 'v1.0.0-dev'
+      EXECUTE_START_SCRIPT:
+        description: 'All in'
+        default: 'true'
+        required: true
       architecture:
         description: 'Target Architecture'
         required: true
@@ -97,12 +101,18 @@ jobs:
       # Step 11: 提交容器为新的镜像
       - name: Commit the updated container to a new image
         run: |
-          docker commit temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
+          if [[ "${{ github.event.inputs.EXECUTE_START_SCRIPT }}" == "true" ]]; then
+            IMAGE_NAME="cordys-crm-ee"
+          else
+            IMAGE_NAME="cordys-crm-ee-offline"
+          fi
+
+          docker commit temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}:${{ github.event.inputs.dockerImageTag }}
 
       # Step 12: 推送新的镜像到指定位置
       - name: Push updated Docker Image
         run: |
-          docker push ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
+          docker push ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}${{ github.event.inputs.dockerImageTag }}
 
       # Step 13: 清理临时容器
       - name: Remove temporary container

@@ -44,7 +44,13 @@ jobs:
       - name: Prepare
         id: prepare
         run: |
-          DOCKER_IMAGE=${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
+          if [[ "${{ github.event.inputs.EXECUTE_START_SCRIPT }}" == "true" ]]; then
+            IMAGE_NAME="cordys-crm-ce"
+          else
+            IMAGE_NAME="cordys-crm-ce-offline"
+          fi
+          
+          DOCKER_IMAGE=${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}
           DOCKER_PLATFORMS=${{ github.event.inputs.architecture }}
           TAG_NAME=${{ github.event.inputs.dockerImageTag }}
           if [[ ${TAG_NAME} == *dev* ]]; then
