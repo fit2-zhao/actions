@@ -17,6 +17,22 @@ on:
           - linux/arm64
           - linux/amd64,linux/arm64
 
+  workflow_call:
+    inputs:
+      dockerImageTag:
+        required: true
+        type: string
+      EXECUTE_START_SCRIP:
+        required: true
+        type: boolean
+      architecture:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: string
+
+
 jobs:
   build-and-update:
     runs-on: ubuntu-latest

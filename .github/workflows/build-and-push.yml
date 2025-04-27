@@ -29,6 +29,20 @@ on:
         type: choice
         options:
           - fit2cloud-registry
+  workflow_call:
+    inputs:
+      dockerImageTag:
+        required: true
+        type: string
+      EXECUTE_START_SCRIP:
+        required: true
+        type: boolean
+      architecture:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: string
 
 jobs:
   build-and-push-to-fit2cloud-registry:
