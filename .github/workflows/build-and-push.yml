@@ -30,17 +30,17 @@ on:
         options:
           - fit2cloud-registry
 
-#jobs:
-#  build-and-push-to-fit2cloud-registry:
-#    if: ${{ contains(github.event.inputs.registry, 'fit2cloud') }}
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Checkout specific repository
-#        uses: actions/checkout@v3
-#        with:
-#          repository: cordys-dev/cordys-crm
-#          token: ${{ secrets.GH_TOKEN }}  # 使用 GitHub token
-#
+jobs:
+  build-and-push-to-fit2cloud-registry:
+    if: ${{ contains(github.event.inputs.registry, 'fit2cloud') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout specific repository
+        uses: actions/checkout@v3
+        with:
+          repository: cordys-dev/cordys-crm
+          token: ${{ secrets.GH_TOKEN }}  # 使用 GitHub token
+
 #      - name: Prepare
 #        id: prepare
 #        run: |
