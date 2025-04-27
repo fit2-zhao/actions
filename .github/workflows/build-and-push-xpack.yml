@@ -96,6 +96,11 @@ jobs:
       # Step 9: 创建一个临时容器
       - name: Create a container from the image
         run: |
+          if [[ "${{ github.event.inputs.EXECUTE_START_SCRIPT }}" == "true" ]]; then
+           PULL_IMAGE_NAME="cordys-crm-ce"
+          else
+           PULL_IMAGE_NAME="cordys-crm-ce-offline"
+          fi
           docker create --name temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${PULL_IMAGE_NAME}:${{ github.event.inputs.dockerImageTag }}
 
       # Step 10: 将编译好的 JAR 文件复制到容器中
@@ -116,6 +121,11 @@ jobs:
       # Step 12: 推送新的镜像到指定位置
       - name: Push updated Docker Image
         run: |
+          if [[ "${{ github.event.inputs.EXECUTE_START_SCRIPT }}" == "true" ]]; then
+            IMAGE_NAME="cordys-crm-ee"
+          else
+            IMAGE_NAME="cordys-crm-ee-offline"
+          fi
           docker push ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}:${{ github.event.inputs.dockerImageTag }}
 
       # Step 13: 清理临时容器
