@@ -112,7 +112,7 @@ jobs:
       # Step 12: 推送新的镜像到指定位置
       - name: Push updated Docker Image
         run: |
-          docker push ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}${{ github.event.inputs.dockerImageTag }}
+          docker push ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}:${{ github.event.inputs.dockerImageTag }}
 
       # Step 13: 清理临时容器
       - name: Remove temporary container
