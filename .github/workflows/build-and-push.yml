@@ -9,7 +9,7 @@ on:
         description: 'Docker Image Tag'
         default: 'v1.0.0-dev'
         required: true
-      EXECUTE_START_SCRIP:
+      EXECUTE_START_SCRIPT:
         description: 'All in'
         default: 'true'
         required: true
