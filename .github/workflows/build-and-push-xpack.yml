@@ -82,12 +82,12 @@ jobs:
       # Step 8: 拉取基础镜像
       - name: Pull Docker Image
         run: |
-          docker pull ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
+          docker pull ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce:${{ github.event.inputs.dockerImageTag }}
 
       # Step 9: 创建一个临时容器
       - name: Create a container from the image
         run: |
-          docker create --name temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee:${{ github.event.inputs.dockerImageTag }}
+          docker create --name temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce:${{ github.event.inputs.dockerImageTag }}
 
       # Step 10: 将编译好的 JAR 文件复制到容器中
       - name: Copy JAR to container
