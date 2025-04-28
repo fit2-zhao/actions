@@ -9,10 +9,6 @@ on:
         description: 'Docker Image Tag'
         default: 'v1.0.0-dev'
         required: true
-      EXECUTE_START_SCRIPT:
-        description: 'All in'
-        default: 'true'
-        required: true
       architecture:
         description: 'Architecture'
         required: true
@@ -44,13 +40,7 @@ jobs:
       - name: Prepare
         id: prepare
         run: |
-          if [[ "${{ github.event.inputs.EXECUTE_START_SCRIPT }}" == "true" ]]; then
-            IMAGE_NAME="cordys-crm-ce"
-          else
-            IMAGE_NAME="cordys-crm-ce-offline"
-          fi
-          
-          DOCKER_IMAGE=${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/${IMAGE_NAME}
+          DOCKER_IMAGE=${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
           DOCKER_PLATFORMS=${{ github.event.inputs.architecture }}
           TAG_NAME=${{ github.event.inputs.dockerImageTag }}
           if [[ ${TAG_NAME} == *dev* ]]; then
@@ -62,7 +52,6 @@ jobs:
             --build-arg DOCKER_IMAGE_TAG=${{ github.event.inputs.dockerImageTag }} --build-arg BUILD_AT=$(TZ=Asia/Shanghai date +'%Y-%m-%dT%H:%M') --build-arg GITHUB_COMMIT=${GITHUB_SHA::8} --no-cache \
             --build-arg FIT2CLOUD_MAVEN_USERNAME=${{ secrets.FIT2CLOUD_MAVEN_USERNAME }} --build-arg FIT2CLOUD_MAVEN_PASSWORD=${{ secrets.FIT2CLOUD_MAVEN_PASSWORD }} \
             --build-arg CRM_VERSION=${{ github.event.inputs.dockerImageTag }} \
-            --build-arg EXECUTE_START_SCRIPT=${{ github.event.inputs.EXECUTE_START_SCRIPT }} \
             ${DOCKER_IMAGE_TAGS} .
 
       - name: Set up QEMU
