@@ -78,6 +78,12 @@ jobs:
         run: |
           git config --global user.name 'fit2-zhao'
           git config --global user.email 'yong.zhao@fit2cloud.com'
+
+        # 判断是否为dev标签，如果是则跳过打tag操作
+          if [[ "${{ github.event.inputs.dockerImageTag }}" == "dev" ]]; then
+            echo "当前为dev标签，跳过打tag操作"
+            exit 0
+          fi
           
           # 获取远程标签信息
           git fetch --prune --tags
