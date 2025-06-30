@@ -96,7 +96,7 @@ jobs:
 
       - name: Copy files to container bin directory
         run: |
-          docker cp ../validator/. temp-container:/usr/local/bin/
+          docker cp ./validator/. temp-container:/usr/local/bin/
 
       # Step 11: 提交容器为新的镜像
       - name: Commit the updated container to a new image
