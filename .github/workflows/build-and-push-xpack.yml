@@ -89,10 +89,10 @@ jobs:
         run: |
           docker create --name temp-container ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce:${{ github.event.inputs.dockerImageTag }}
 
-      # Step 10: 将编译好的 JAR 文件复制到容器中
+      # Step 10: 将编译好的 JAR 文件复制到容器中,暂时不带版本 cordys-crm-xpack-${{ env.JAR_VERSION }}.jar
       - name: Copy JAR to container
         run: |
-          docker cp ${{ env.JAR_FILE }} temp-container:/app/lib/cordys-crm-xpack-${{ env.JAR_VERSION }}.jar
+          docker cp ${{ env.JAR_FILE }} temp-container:/app/lib/cordys-crm-xpack.jar
 
       # Step 11: 提交容器为新的镜像
       - name: Commit the updated container to a new image
