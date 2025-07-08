@@ -84,11 +84,15 @@ jobs:
 
       - name: Build EE image locally
         run: |
+          cat <<EOF > Dockerfile.ee
+          FROM ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }}
+          COPY ${{ env.XPACK_JAR }} /app/lib/cordys-crm-xpack.jar
+          EOF
           docker buildx build \
             --platform ${{ github.event.inputs.architecture }} \
             --tag ${{ env.REGISTRY_HOST }}/cordys-crm-ee:${{ env.TAG }} \
             --load \
-            - <<EOF
+            -f Dockerfile.ee .
           FROM ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }}
           COPY ${{ env.XPACK_JAR }} /app/lib/cordys-crm-xpack.jar
   EOF
