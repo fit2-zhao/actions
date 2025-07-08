@@ -41,7 +41,7 @@ jobs:
       - name: Build & install CE
         working-directory: cordys-crm
         run: |
-          ./mvnw clean install -DskipTests -DskipAntRunForJenkins --file backend/pom.xml -B
+          ./mvnw clean package -DskipTests -pl '!frontend' -B
 
       # 3. Checkout EE (XPack) into another subfolder
       - name: Checkout EE (XPack) Repository
