@@ -101,10 +101,11 @@ jobs:
           else
             CE_TAGS="--tag ${CE_IMAGE}:${TAG} --tag ${CE_IMAGE}:latest"
           fi
+          SHORT_SHA=$(git rev-parse --short HEAD)
           docker buildx build \
             --platform ${PLATFORMS} \
             ${CE_TAGS} \
-            --build-arg CRM_VERSION=${TAG}-$(git -C cordys-crm rev-parse --short HEAD) \
+            --build-arg CRM_VERSION=${TAG}-${SHORT_SHA} \
             --push \
             -f installer/Dockerfile .
 
