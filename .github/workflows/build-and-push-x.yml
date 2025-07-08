@@ -28,62 +28,71 @@ jobs:
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
     steps:
-      # 0. 安装 Java 21 并开启 Maven 缓存（显式指定 pom 路径）
-      - name: Set up Java 21 & Cache Maven
+      # 0. Checkout CE and EE early so cache patterns work
+      - uses: actions/checkout@v3
+        name: Checkout all code
+        with:
+          # 这里没有指定 path，复制两个 checkout 可选用路径方式
+          fetch-depth: 0
+
+      # 1. 设置 Java 21
+      - name: Set up Java 21
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: 'maven'
-          cache-dependency-path: |
-            cordys-crm/pom.xml
-            cordys-crm-xpack/pom.xml
 
-      # 1. Checkout CE 源码
-      - name: Checkout CE Repository
+      # 2. 手动缓存 Maven 本地仓库
+      - name: Cache Maven repository
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # 3. Build & install CE
+      - name: Checkout CE
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm
 
-      # 2. 构建并安装 CE 到本地 Maven 仓库，跳过 frontend
-      - name: Build & Install CE
+      - name: Build & Install CE (exclude frontend)
         working-directory: cordys-crm
         run: |
           ./mvnw install -N
           ./mvnw clean package -DskipTests -pl '!frontend' -am -B
 
-      # 3. Checkout EE 源码（xpack）
-      - name: Checkout EE (XPack) Repository
+      # 4. Checkout & build EE
+      - name: Checkout EE (xpack)
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm-xpack
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm-xpack
 
-      # 4. 编译 EE JAR
-      - name: Build XPack JAR
+      - name: Build EE JAR
         working-directory: cordys-crm-xpack
         run: |
           ./mvnw clean package -DskipTests -B
 
-      # 5. 配置 QEMU 与 Buildx
+      # 5. Setup QEMU + Buildx + Login
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 6. 登录 Docker Registry
-      - name: Login to Registry
+      - name: Login to registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      # 7. 构建并推送 CE 镜像
+      # 6. Build & push CE image
       - name: Build & Push CE Image
         working-directory: cordys-crm
         run: |
@@ -99,7 +108,7 @@ jobs:
             --push \
             -f installer/Dockerfile .
 
-      # 8. 构建并推送 EE 镜像（基于 CE commit 容器）
+      # 7. Build & push EE image
       - name: Build & Push EE Image
         run: |
           JAR=$(ls cordys-crm-xpack/target/*.jar | head -n1)
@@ -110,7 +119,7 @@ jobs:
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
 
-      # 9. 重新创建 Git Tag（仅当 TAG ≠ dev）
+      # 8. Recreate Git tag if needed
       - name: Recreate Git Tag
         if: success() && github.event.inputs.dockerImageTag != 'dev'
         run: |
