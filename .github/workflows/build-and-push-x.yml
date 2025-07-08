@@ -21,7 +21,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     env:
-      MAVEN_CACHE_KEY: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+      MAVEN_CACHE_KEY: ${{ github.runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
       REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
       CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
       EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee
@@ -41,6 +41,10 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
+
+#      - name: Build and Install CE to Local Maven
+#        run: |
+#          mvnw clean install -DskipTests
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
