@@ -22,29 +22,41 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
-      CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
-      EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee
+      CE_IMAGE: ${{ env.REGISTRY }}/cordys/cordys-crm-ce
+      EE_IMAGE: ${{ env.REGISTRY }}/cordys/cordys-crm-ee
       TAG: ${{ github.event.inputs.dockerImageTag }}
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
     steps:
+      # 1. Checkout CE into subfolder
       - name: Checkout CE Repository
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}
+          path: cordys-crm
 
-      - name: Set up Java and Cache Maven
-        uses: actions/setup-java@v3
+      # 2. Build & install CE to local Maven
+      - name: Build & install CE
+        working-directory: cordys-crm
+        run: |
+          ./mvnw clean install -DskipTests -DskipAntRunForJenkins --file backend/pom.xml -B
+
+      # 3. Checkout EE (XPack) into another subfolder
+      - name: Checkout EE (XPack) Repository
+        uses: actions/checkout@v3
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
+          repository: cordys-dev/cordys-crm-xpack
+          token: ${{ secrets.GH_TOKEN }}
+          path: cordys-crm-xpack
 
-#      - name: Build and Install CE to Local Maven
-#        run: |
-#          mvnw clean install -DskipTests
+      # 4. Build XPack JAR (可依赖本地仓库的 CE 产物)
+      - name: Build XPack JAR
+        working-directory: cordys-crm-xpack
+        run: |
+          ./mvnw clean package -DskipTests -B
 
+      # 5. Setup QEMU + Buildx + 登录私服
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -58,7 +70,9 @@ jobs:
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      - name: Build & Push CE Image (and Load Locally)
+      # 6. Build & Push CE Image
+      - name: Build & Push CE Image
+        working-directory: cordys-crm
         run: |
           if [[ "${TAG}" == "dev" ]]; then
             CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
@@ -68,52 +82,31 @@ jobs:
           docker buildx build \
             --platform ${PLATFORMS} \
             ${CE_TAGS} \
-            --build-arg CRM_VERSION=${TAG}-$(git rev-parse --short HEAD) \
-            --load \
+            --build-arg CRM_VERSION=${TAG}-$(git -C cordys-crm rev-parse --short HEAD) \
             --push \
             -f installer/Dockerfile .
 
-      - name: Checkout EE (XPack) Repository
-        uses: actions/checkout@v3
-        with:
-          repository: cordys-dev/cordys-crm-xpack
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Set up Java for XPack
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
-
-      - name: Change to cordys-crm-xpack directory
-        run: ls -la
-
-      - name: Build XPack JAR
+      # 7. Build & Push EE Image via container-commit
+      - name: Build & Push EE Image
         run: |
-          ./mvnw clean package -DskipTests
-
-      - name: Extract XPack Artifact
-        id: xpack
-        run: |
-          JAR=$(ls target/*.jar | head -n 1)
-          echo "JAR_PATH=$JAR" >> $GITHUB_ENV
-
-      - name: Build & Push EE Image via Container Commit
-        run: |
+          JAR=$(ls cordys-crm-xpack/target/*.jar | head -n1)
           docker pull ${CE_IMAGE}:${TAG}
           docker create --name temp-ce ${CE_IMAGE}:${TAG}
-          docker cp ${{ env.JAR_PATH }} temp-ce:/app/lib/cordys-crm-xpack.jar
+          docker cp "$JAR" temp-ce:/app/lib/cordys-crm-xpack.jar
           docker commit temp-ce ${EE_IMAGE}:${TAG}
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
 
+      # 8. （可选）Recreate Git Tag for release
       - name: Recreate Git Tag
         if: success() && github.event.inputs.dockerImageTag != 'dev'
         run: |
           git config --global user.name 'fit2-zhao'
           git config --global user.email 'yong.zhao@fit2cloud.com'
           git fetch --prune --tags
-          if git tag -l "${TAG}"; then git tag -d "${TAG}"; git push --delete origin "${TAG}"; fi
+          if git tag -l "${TAG}"; then
+            git tag -d "${TAG}"
+            git push --delete origin "${TAG}"
+          fi
           git tag -a "${TAG}" -m "Release ${TAG}"
           git push origin "${TAG}"
