@@ -28,15 +28,18 @@ jobs:
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
     steps:
-      # —— 0. Java 21 + Maven 缓存 ——
+      # 0. 安装 Java 21 并开启 Maven 缓存（显式指定 pom 路径）
       - name: Set up Java 21 & Cache Maven
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
+          cache-dependency-path: |
+            cordys-crm/pom.xml
+            cordys-crm-xpack/pom.xml
 
-      # 1. Checkout CE into a dedicated subfolder
+      # 1. Checkout CE 源码
       - name: Checkout CE Repository
         uses: actions/checkout@v3
         with:
@@ -44,16 +47,14 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm
 
-      # 2. Build & install CE into local Maven, 排除 frontend 模块
-      - name: Build & install CE
+      # 2. 构建并安装 CE 到本地 Maven 仓库，跳过 frontend
+      - name: Build & Install CE
         working-directory: cordys-crm
         run: |
-          # 先只安装父 POM，不递归子模块
           ./mvnw install -N
-          # 排除 frontend 模块，打包其它模块
           ./mvnw clean package -DskipTests -pl '!frontend' -am -B
 
-      # 3. Checkout EE (XPack) into another subfolder
+      # 3. Checkout EE 源码（xpack）
       - name: Checkout EE (XPack) Repository
         uses: actions/checkout@v3
         with:
@@ -61,19 +62,20 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm-xpack
 
-      # 4. Build XPack JAR (可依赖本地仓库的 CE 产物)
+      # 4. 编译 EE JAR
       - name: Build XPack JAR
         working-directory: cordys-crm-xpack
         run: |
           ./mvnw clean package -DskipTests -B
 
-      # 5. Setup QEMU + Buildx + 登录私有 Registry
+      # 5. 配置 QEMU 与 Buildx
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 6. 登录 Docker Registry
       - name: Login to Registry
         uses: docker/login-action@v3
         with:
@@ -81,7 +83,7 @@ jobs:
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      # 6. Build & Push CE Image
+      # 7. 构建并推送 CE 镜像
       - name: Build & Push CE Image
         working-directory: cordys-crm
         run: |
@@ -97,7 +99,7 @@ jobs:
             --push \
             -f installer/Dockerfile .
 
-      # 7. Build & Push EE Image via container-commit
+      # 8. 构建并推送 EE 镜像（基于 CE commit 容器）
       - name: Build & Push EE Image
         run: |
           JAR=$(ls cordys-crm-xpack/target/*.jar | head -n1)
@@ -108,7 +110,7 @@ jobs:
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
 
-      # 8. （可选）Recreate Git Tag for release (非 dev 模式下生效)
+      # 9. 重新创建 Git Tag（仅当 TAG ≠ dev）
       - name: Recreate Git Tag
         if: success() && github.event.inputs.dockerImageTag != 'dev'
         run: |
