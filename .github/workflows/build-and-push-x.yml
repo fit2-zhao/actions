@@ -86,9 +86,12 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
+      - name: Change to cordys-crm-xpack directory
+        run: ls -la
+
       - name: Build XPack JAR
         run: |
-          mvnw clean package -DskipTests
+          ./mvnw clean package -DskipTests
 
       - name: Extract XPack Artifact
         id: xpack
