@@ -41,7 +41,8 @@ jobs:
       - name: Build & install CE
         working-directory: cordys-crm
         run: |
-          ./mvnw clean package -DskipTests -pl '!frontend' -B
+          ./mvnw install -N && \
+          ./mvnw clean package -DskipTests -pl '!frontend' -am -B
 
       # 3. Checkout EE (XPack) into another subfolder
       - name: Checkout EE (XPack) Repository
