@@ -20,15 +20,16 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # 这里直接把镜像路径和 registry 都写成 secrets 拼接，避免引用同级 env
     env:
       REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
-      CE_IMAGE: ${{ env.REGISTRY }}/cordys/cordys-crm-ce
-      EE_IMAGE: ${{ env.REGISTRY }}/cordys/cordys-crm-ee
+      CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
+      EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee
       TAG: ${{ github.event.inputs.dockerImageTag }}
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
     steps:
-      # 1. Checkout CE into subfolder
+      # 1. Checkout CE into a dedicated subfolder
       - name: Checkout CE Repository
         uses: actions/checkout@v3
         with:
@@ -36,7 +37,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm
 
-      # 2. Build & install CE to local Maven
+      # 2. Build & install CE into local Maven
       - name: Build & install CE
         working-directory: cordys-crm
         run: |
@@ -50,13 +51,13 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm-xpack
 
-      # 4. Build XPack JAR (可依赖本地仓库的 CE 产物)
+      # 4. Build XPack JAR (此时可依赖本地仓库中的 CE 产物)
       - name: Build XPack JAR
         working-directory: cordys-crm-xpack
         run: |
           ./mvnw clean package -DskipTests -B
 
-      # 5. Setup QEMU + Buildx + 登录私服
+      # 5. Setup QEMU + Buildx + 登录私有 Registry
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -97,7 +98,7 @@ jobs:
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
 
-      # 8. （可选）Recreate Git Tag for release
+      # 8. （可选）Recreate Git Tag for release (非 dev 模式下生效)
       - name: Recreate Git Tag
         if: success() && github.event.inputs.dockerImageTag != 'dev'
         run: |
