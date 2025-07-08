@@ -63,7 +63,7 @@ jobs:
         working-directory: cordys-crm
         run: |
           ./mvnw install -N
-          ./mvnw clean package -DskipTests -pl "!frontend" -am -B
+          ./mvnw clean package -DskipTests --file backend/pom.xml
 
       # 4. Checkout & build EE
       - name: Checkout EE (xpack)
