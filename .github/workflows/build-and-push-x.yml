@@ -17,8 +17,6 @@ on:
         options:
           - linux/amd64
           - linux/arm64
-          - linux/amd64,linux/arm64
-
 
 env:
   REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys
