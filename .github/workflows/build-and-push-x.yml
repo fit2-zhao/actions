@@ -1,0 +1,134 @@
+name: build-and-push-ce-ee
+
+run-name: 构建并推送 CE & EE 镜像 ${{ github.event.inputs.dockerImageTag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerImageTag:
+        description: 'Docker Image Tag'
+        required: true
+        default: 'dev'
+      architecture:
+        description: 'Target Architecture (单平台模式支持本地 load)'
+        required: true
+        default: 'linux/amd64'
+        type: choice
+        options:
+          - linux/amd64
+          - linux/arm64
+          - linux/amd64,linux/arm64
+
+
+env:
+  REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys
+  TAG: ${{ github.event.inputs.dockerImageTag }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [${{ github.event.inputs.architecture }}]
+    steps:
+      - name: Checkout CE Source
+        uses: actions/checkout@v3
+        with:
+          repository: cordys-dev/cordys-crm
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up QEMU & Buildx
+        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
+          username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
+          password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
+
+      - name: Prepare Build Args
+        id: prep
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          echo "SHORT_SHA=$SHA" >> $GITHUB_ENV
+
+      - name: Build & Load CE Locally
+        run: |
+          docker buildx build \
+            --platform ${{ matrix.arch }} \
+            --tag ${{ env.REGISTRY }}/cordys-crm-ce:${{ env.TAG }} \
+            --tag ${{ env.REGISTRY }}/cordys-crm-ce:latest \
+            --build-arg DOCKER_IMAGE_TAG=${{ env.TAG }} \
+            --build-arg BUILD_AT=$(TZ=Asia/Shanghai date +'%Y-%m-%dT%H:%M') \
+            --build-arg GITHUB_COMMIT=${SHORT_SHA} \
+            --no-cache \
+            --build-arg FIT2CLOUD_MAVEN_USERNAME=${{ secrets.FIT2CLOUD_MAVEN_USERNAME }} \
+            --build-arg FIT2CLOUD_MAVEN_PASSWORD=${{ secrets.FIT2CLOUD_MAVEN_PASSWORD }} \
+            --build-arg CRM_VERSION=${{ env.TAG }}-${SHORT_SHA} \
+            --load \
+            -f installer/Dockerfile .
+
+      - name: Compile XPack JAR
+        uses: actions/checkout@v3
+        with:
+          repository: cordys-dev/cordys-crm-xpack
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Set up Java 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Cache Maven Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Clean Local CRM Cache
+        run: rm -rf ~/.m2/repository/io/cordys
+      - name: Build XPack
+        run: |
+          ./mvnw clean package -DskipTests
+          echo "JAR_FILE=$(ls target/*.jar | head -1)" >> $GITHUB_ENV
+
+      - name: Build EE Image from CE
+        run: |
+          docker build \
+            --platform ${{ matrix.arch }} \
+            --tag ${{ env.REGISTRY }}/cordys-crm-ee:${{ env.TAG }} \
+            -f - . <<EOF
+          FROM ${{ env.REGISTRY }}/cordys-crm-ce:${{ env.TAG }}
+          COPY ${{ env.JAR_FILE }} /app/lib/cordys-crm-xpack.jar
+  EOF
+
+- name: Push Both CE & EE
+  run: |
+    if [[ "${{ env.TAG }}" != "dev" ]]; then
+      docker push ${{ env.REGISTRY }}/cordys-crm-ce:${{ env.TAG }}
+      docker push ${{ env.REGISTRY }}/cordys-crm-ce:latest
+      docker push ${{ env.REGISTRY }}/cordys-crm-ee:${{ env.TAG }}
+    else
+      echo "Dev tag: 推送 CE 和 EE 到 ${TAG}"
+      docker push ${{ env.REGISTRY }}/cordys-crm-ce:${{ env.TAG }}
+      docker push ${{ env.REGISTRY }}/cordys-crm-ee:${{ env.TAG }}
+    fi
+
+- name: Create or Recreate Git Tag
+  if: success()
+  run: |
+    git config --global user.name 'fit2-zhao'
+    git config --global user.email 'yong.zhao@fit2cloud.com'
+    TAG=${{ env.TAG }}
+    [[ "$TAG" == "dev" ]] && exit 0
+    git fetch --prune --tags
+    if git ls-remote --tags origin refs/tags/$TAG | grep -q $TAG || git tag -l $TAG | grep -q $TAG; then
+      git tag -d $TAG || true
+      git push --delete origin $TAG || true
+      sleep 2
+      git fetch --prune --tags
+    fi
+    git tag -a $TAG -m "Release $TAG"
+    git push origin $TAG
