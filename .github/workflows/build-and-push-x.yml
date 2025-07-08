@@ -21,7 +21,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     env:
-      MAVEN_CACHE_KEY: ${{ github.runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
       REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
       CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
       EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee
@@ -35,7 +34,7 @@ jobs:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Set up Java
+      - name: Set up Java and Cache Maven
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -61,13 +60,11 @@ jobs:
 
       - name: Build & Push CE Image (and Load Locally)
         run: |
-          # derive tags
           if [[ "${TAG}" == "dev" ]]; then
             CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
           else
             CE_TAGS="--tag ${CE_IMAGE}:${TAG} --tag ${CE_IMAGE}:latest"
           fi
-          
           docker buildx build \
             --platform ${PLATFORMS} \
             ${CE_TAGS} \
@@ -82,6 +79,13 @@ jobs:
           repository: cordys-dev/cordys-crm-xpack
           token: ${{ secrets.GH_TOKEN }}
 
+      - name: Set up Java for XPack
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
       - name: Build XPack JAR
         run: |
           mvnw clean package -DskipTests
@@ -94,7 +98,6 @@ jobs:
 
       - name: Build & Push EE Image via Container Commit
         run: |
-          # pull CE image locally to ensure availability
           docker pull ${CE_IMAGE}:${TAG}
           docker create --name temp-ce ${CE_IMAGE}:${TAG}
           docker cp ${{ env.JAR_PATH }} temp-ce:/app/lib/cordys-crm-xpack.jar
