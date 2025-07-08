@@ -16,6 +16,11 @@ on:
           - linux/amd64
           - linux/arm64
           - linux/amd64,linux/arm64
+      # 新增分支参数
+      csBranch:
+        description: 'CE & EE Repository Branch'
+        required: true
+        default: 'main'
 
 jobs:
   build-and-push:
@@ -30,9 +35,8 @@ jobs:
     steps:
       # 0. Checkout CE and EE early so cache patterns work
       - uses: actions/checkout@v3
-        name: Checkout all code
+        name: Checkout CI repository
         with:
-          # 这里没有指定 path，复制两个 checkout 可选用路径方式
           fetch-depth: 0
 
       # 1. 设置 Java 21
@@ -57,6 +61,7 @@ jobs:
         with:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}  # 指定CE分支
           path: cordys-crm
 
       - name: Build & Install CE (exclude frontend)
@@ -71,6 +76,7 @@ jobs:
         with:
           repository: cordys-dev/cordys-crm-xpack
           token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}  # 指定EE分支
           path: cordys-crm-xpack
 
       - name: Build EE JAR
