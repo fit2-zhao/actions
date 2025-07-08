@@ -1,6 +1,4 @@
-name: build-and-push-ce-ee
-
-run-name: 构建并推送 CE & EE 镜像 ${{ github.event.inputs.dockerImageTag }}
+name: Build and Push CE & EE Images
 
 on:
   workflow_dispatch:
@@ -17,110 +15,95 @@ on:
         options:
           - linux/amd64
           - linux/arm64
-
-env:
-  REGISTRY_HOST: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
-  REGISTRY_USER: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
-  REGISTRY_PWD: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
-  TAG: ${{ github.event.inputs.dockerImageTag }}
+          - linux/amd64,linux/arm64
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
+    env:
+      MAVEN_CACHE_KEY: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+      REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
+      CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
+      EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee
+      TAG: ${{ github.event.inputs.dockerImageTag }}
+      PLATFORMS: ${{ github.event.inputs.architecture }}
+
     steps:
-      - name: Checkout CE repository
+      - name: Checkout CE Repository
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Set up Java 21
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
 
-      - name: Cache Maven repo
-        uses: actions/cache@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Registry
+        uses: docker/login-action@v3
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
+          password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      - name: Build and install CE artifacts
+      - name: Build & Push CE Image (and Load Locally)
         run: |
-          ./mvnw clean install -DskipTests
+          # derive tags
+          if [[ "${TAG}" == "dev" ]]; then
+            CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
+          else
+            CE_TAGS="--tag ${CE_IMAGE}:${TAG} --tag ${CE_IMAGE}:latest"
+          fi
+          
+          docker buildx build \
+            --platform ${PLATFORMS} \
+            ${CE_TAGS} \
+            --build-arg CRM_VERSION=${TAG}-$(git rev-parse --short HEAD) \
+            --load \
+            --push \
+            -f installer/Dockerfile .
 
-      - name: Checkout XPack repository
+      - name: Checkout EE (XPack) Repository
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm-xpack
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Build XPack artifact
+      - name: Build XPack JAR
         run: |
-          ./mvnw clean package -DskipTests
-          echo "XPACK_JAR=$(ls target/*.jar | head -1)" >> $GITHUB_ENV
+          mvnw clean package -DskipTests
 
-      - name: Set up QEMU & Buildx
-        uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Login to Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY_HOST }}
-          username: ${{ env.REGISTRY_USER }}
-          password: ${{ env.REGISTRY_PWD }}
-
-      - name: Build CE image locally
+      - name: Extract XPack Artifact
+        id: xpack
         run: |
-          docker buildx build \
-            --platform ${{ github.event.inputs.architecture }} \
-            --tag ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }} \
-            --load \
-            -f installer/Dockerfile .
+          JAR=$(ls target/*.jar | head -n 1)
+          echo "JAR_PATH=$JAR" >> $GITHUB_ENV
 
-      - name: Build EE image locally
+      - name: Build & Push EE Image via Container Commit
         run: |
-          cat <<EOF > Dockerfile.ee
-          FROM ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }}
-          COPY ${{ env.XPACK_JAR }} /app/lib/cordys-crm-xpack.jar
-          EOF
-          docker buildx build \
-            --platform ${{ github.event.inputs.architecture }} \
-            --tag ${{ env.REGISTRY_HOST }}/cordys-crm-ee:${{ env.TAG }} \
-            --load \
-            -f Dockerfile.ee .
-          FROM ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }}
-          COPY ${{ env.XPACK_JAR }} /app/lib/cordys-crm-xpack.jar
-  EOF
+          # pull CE image locally to ensure availability
+          docker pull ${CE_IMAGE}:${TAG}
+          docker create --name temp-ce ${CE_IMAGE}:${TAG}
+          docker cp ${{ env.JAR_PATH }} temp-ce:/app/lib/cordys-crm-xpack.jar
+          docker commit temp-ce ${EE_IMAGE}:${TAG}
+          docker push ${EE_IMAGE}:${TAG}
+          docker rm temp-ce
 
-- name: Push CE and EE images
-  run: |
-    # 推送 CE
-    docker push ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }}
-    # 推送 EE
-    docker push ${{ env.REGISTRY_HOST }}/cordys-crm-ee:${{ env.TAG }}
-    # 如果非 dev，则也更新 latest tag
-    if [[ "${{ env.TAG }}" != "dev" ]]; then
-      docker tag ${{ env.REGISTRY_HOST }}/cordys-crm-ce:${{ env.TAG }} ${{ env.REGISTRY_HOST }}/cordys-crm-ce:latest
-      docker push ${{ env.REGISTRY_HOST }}/cordys-crm-ce:latest
-    fi
-
-- name: Create or recreate Git tag
-  if: github.event.inputs.dockerImageTag != 'dev'
-  run: |
-    git config --global user.name 'fit2-zhao'
-    git config --global user.email 'yong.zhao@fit2cloud.com'
-    TAG=${{ env.TAG }}
-    git fetch --prune --tags
-    if git ls-remote --tags origin refs/tags/$TAG | grep -q $TAG || git tag -l $TAG | grep -q $TAG; then
-      git tag -d $TAG || true
-      git push --delete origin $TAG || true
-      sleep 2
-      git fetch --prune --tags
-    fi
-    git tag -a $TAG -m "Release $TAG"
-    git push origin $TAG
+      - name: Recreate Git Tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
+          git fetch --prune --tags
+          if git tag -l "${TAG}"; then git tag -d "${TAG}"; git push --delete origin "${TAG}"; fi
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
