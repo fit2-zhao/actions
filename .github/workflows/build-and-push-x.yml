@@ -20,7 +20,6 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    # 这里直接把镜像路径和 registry 都写成 secrets 拼接，避免引用同级 env
     env:
       REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
       CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
@@ -29,6 +28,14 @@ jobs:
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
     steps:
+      # —— 0. Java 21 + Maven 缓存 ——
+      - name: Set up Java 21 & Cache Maven
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
       # 1. Checkout CE into a dedicated subfolder
       - name: Checkout CE Repository
         uses: actions/checkout@v3
@@ -37,11 +44,13 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm
 
-      # 2. Build & install CE into local Maven
+      # 2. Build & install CE into local Maven, 排除 frontend 模块
       - name: Build & install CE
         working-directory: cordys-crm
         run: |
-          ./mvnw install -N && \
+          # 先只安装父 POM，不递归子模块
+          ./mvnw install -N
+          # 排除 frontend 模块，打包其它模块
           ./mvnw clean package -DskipTests -pl '!frontend' -am -B
 
       # 3. Checkout EE (XPack) into another subfolder
@@ -52,7 +61,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: cordys-crm-xpack
 
-      # 4. Build XPack JAR (此时可依赖本地仓库中的 CE 产物)
+      # 4. Build XPack JAR (可依赖本地仓库的 CE 产物)
       - name: Build XPack JAR
         working-directory: cordys-crm-xpack
         run: |
