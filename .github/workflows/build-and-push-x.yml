@@ -63,8 +63,7 @@ jobs:
       - name: Clean previous CE artifacts
         working-directory: cordys-crm
         run: |
-          rm -rf target
-          mvn dependency:purge-local-repository -DreResolve=false -B
+          rm -rf ~/.m2/repository/io/cordys
 
       - name: Build CE (exclude frontend)
         working-directory: cordys-crm
