@@ -69,7 +69,7 @@ jobs:
         working-directory: cordys-crm
         run: |
           ./mvnw install -N
-          ./mvnw clean package -DskipTests -pl "!frontend" -am -B
+          ./mvnw clean install -DskipTests -pl "!frontend" -am -B
 
       # === Build EE ===
       - name: Checkout EE
