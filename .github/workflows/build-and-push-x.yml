@@ -60,6 +60,10 @@ jobs:
           ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm
 
+      - name: Delete CRM JAR from local Maven repo
+        run: |
+          rm -rf ~/.m2/repository/io/cordys
+
       - name: Build CE (exclude frontend)
         working-directory: cordys-crm
         run: |
