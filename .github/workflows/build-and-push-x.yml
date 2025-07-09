@@ -115,6 +115,37 @@ jobs:
             --push \
             -f installer/Dockerfile .
 
+      - name: Create or Re-create CE Tag
+        if: success()
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
+
+          # 判断是否为dev标签，如果是则跳过打tag操作
+          if [[ "${{ github.event.inputs.dockerImageTag }}" != "dev" ]]; then
+            # 获取远程标签信息
+            git fetch --prune --tags
+            
+            # 检查标签是否存在（本地或远程）
+            if git ls-remote --tags origin refs/tags/${{ github.event.inputs.dockerImageTag }} | grep -q "${{ github.event.inputs.dockerImageTag }}" || git tag -l "${{ github.event.inputs.dockerImageTag }}" | grep -q "${{ github.event.inputs.dockerImageTag }}"; then
+              echo "标签 ${{ github.event.inputs.dockerImageTag }} 已存在，正在删除..."
+            
+              # 删除本地标签（如果存在）
+              git tag -d ${{ github.event.inputs.dockerImageTag }} || true
+            
+              # 删除远程标签并确认结果
+              git push --delete origin ${{ github.event.inputs.dockerImageTag }} || echo "远程标签可能不存在或已被删除"
+            
+              # 确认标签已被删除
+              sleep 2
+              git fetch --prune --tags
+            fi
+            
+            # 创建和推送新标签
+            git tag -a ${{ github.event.inputs.dockerImageTag }} -m "Release ${{ github.event.inputs.dockerImageTag }}"
+            git push origin ${{ github.event.inputs.dockerImageTag }}
+          fi
+
       # 7. Build & push EE image
       - name: Build & Push EE Image
         run: |
@@ -126,16 +157,37 @@ jobs:
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
 
-      # 8. Recreate Git tag if needed
-      - name: Recreate Git Tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        # 创建或更新标签
+      - name: Create or Re-create EE Tag
+        if: success()
         run: |
           git config --global user.name 'fit2-zhao'
           git config --global user.email 'yong.zhao@fit2cloud.com'
-          git fetch --prune --tags
-          if git tag -l "${TAG}"; then
-            git tag -d "${TAG}"
-            git push --delete origin "${TAG}"
+          
+          # 判断是否为dev标签，如果是则跳过打tag操作
+          if [[ "${{ github.event.inputs.dockerImageTag }}" == "dev" ]]; then
+            echo "当前为dev标签，跳过打tag操作"
+            exit 0
           fi
-          git tag -a "${TAG}" -m "Release ${TAG}"
-          git push origin "${TAG}"
+          
+          # 获取远程标签信息
+          git fetch --prune --tags
+          
+          # 检查标签是否存在（本地或远程）
+          if git ls-remote --tags origin refs/tags/${{ github.event.inputs.dockerImageTag }} | grep -q "${{ github.event.inputs.dockerImageTag }}" || git tag -l "${{ github.event.inputs.dockerImageTag }}" | grep -q "${{ github.event.inputs.dockerImageTag }}"; then
+            echo "标签 ${{ github.event.inputs.dockerImageTag }} 已存在，正在删除..."
+          
+            # 删除本地标签（如果存在）
+            git tag -d ${{ github.event.inputs.dockerImageTag }} || true
+          
+            # 删除远程标签并确认结果
+            git push --delete origin ${{ github.event.inputs.dockerImageTag }} || echo "远程标签可能不存在或已被删除"
+          
+            # 确认标签已被删除
+            sleep 2
+            git fetch --prune --tags
+          fi
+          
+          # 创建和推送新标签
+          git tag -a ${{ github.event.inputs.dockerImageTag }} -m "Release ${{ github.event.inputs.dockerImageTag }}"
+          git push origin ${{ github.event.inputs.dockerImageTag }}
