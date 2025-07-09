@@ -67,7 +67,7 @@ jobs:
           ./mvnw clean package -DskipTests -pl "!frontend" -am -B
 
       # === Build EE ===
-      - name: Checkout EE (xpack)
+      - name: Checkout EE
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm-xpack
@@ -112,40 +112,30 @@ jobs:
             -f installer/Dockerfile .
 
       # === Tag CE Repository ===
-      - name: Create or Re-create CE Tag
+      - name: Configure Git for Tagging
         if: success() && github.event.inputs.dockerImageTag != 'dev'
-        needs: [build-and-push]
-        steps:
-          - name: Checkout CE for Tagging
-            uses: actions/checkout@v3
-            with:
-              repository: cordys-dev/cordys-crm
-              token: ${{ secrets.GH_TOKEN }}
-              fetch-depth: 0
-              ref: ${{ github.event.inputs.csBranch }}
-              path: cordys-crm
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
 
-          - name: Configure Git
-            run: |
-              git config --global user.name 'fit2-zhao'
-              git config --global user.email 'yong.zhao@fit2cloud.com'
+      - name: Delete existing CE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        working-directory: cordys-crm
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
 
-          - name: Delete existing tag if present
-            working-directory: cordys-crm
-            run: |
-              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
-              git fetch --prune --tags
-              if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
-                git tag -d ${TAG_NAME}
-                git push origin --delete ${TAG_NAME} || true
-              fi
-
-          - name: Create and Push new tag
-            working-directory: cordys-crm
-            run: |
-              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
-              git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
-              git push origin ${TAG_NAME}
+      - name: Create and push CE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        working-directory: cordys-crm
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
 
       # === Build & Push EE Image ===
       - name: Build & Push EE Image
@@ -159,38 +149,27 @@ jobs:
           docker rm temp-ce
 
       # === Tag EE Repository ===
-      - name: Create or Re-create EE Tag
+      - name: Configure Git for EE Tagging
         if: success() && github.event.inputs.dockerImageTag != 'dev'
-        needs: [build-and-push]
-        steps:
-          - name: Checkout EE for Tagging
-            uses: actions/checkout@v3
-            with:
-              repository: cordys-dev/cordys-crm-xpack
-              token: ${{ secrets.GH_TOKEN }}
-              fetch-depth: 0
-              ref: ${{ github.event.inputs.csBranch }}
-              path: cordys-crm-xpack
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
 
-          - name: Configure Git
-            run: |
-              git config --global user.name 'fit2-zhao'
-              git config --global user.email 'yong.zhao@fit2cloud.com'
+      - name: Delete existing EE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        working-directory: cordys-crm-xpack
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
 
-          - name: Delete existing tag if present
-            working-directory: cordys-crm-xpack
-            run: |
-              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
-              git fetch --prune --tags
-              if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
-                git tag -d ${TAG_NAME}
-                git push origin --delete ${TAG_NAME} || true
-              fi
-
-          - name: Create and Push new tag
-            working-directory: cordys-crm-xpack
-            run: |
-              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
-              git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
-              git push origin ${TAG_NAME}
-
+      - name: Create and push EE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        working-directory: cordys-crm-xpack
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
