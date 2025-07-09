@@ -46,7 +46,10 @@ jobs:
       - name: Cache Maven repository
         uses: actions/cache@v3
         with:
-          path: ~/.m2/repository
+          path: |
+            ~/.m2/repository
+            cordys-crm/.mvn/wrapper
+            cordys-crm-xpack/.mvn/wrapper
           key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
