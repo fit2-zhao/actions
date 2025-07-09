@@ -16,7 +16,6 @@ on:
           - linux/amd64
           - linux/arm64
           - linux/amd64,linux/arm64
-      # 新增分支参数
       csBranch:
         description: 'CE & EE Repository Branch'
         required: true
@@ -33,20 +32,17 @@ jobs:
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
     steps:
-      # 0. Checkout CE and EE early so cache patterns work
-      - uses: actions/checkout@v3
-        name: Checkout CI repository
+      - name: Checkout CI repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # 1. 设置 Java 21
       - name: Set up Java 21
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      # 2. 手动缓存 Maven 本地仓库
       - name: Cache Maven repository
         uses: actions/cache@v3
         with:
@@ -55,28 +51,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # 3. Build & install CE
+      # === Build CE ===
       - name: Checkout CE
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm
           token: ${{ secrets.GH_TOKEN }}
-          ref: ${{ github.event.inputs.csBranch }}  # 指定CE分支
+          ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm
 
-      - name: Build & Install CE (exclude frontend)
+      - name: Build CE (exclude frontend)
         working-directory: cordys-crm
         run: |
           ./mvnw install -N
           ./mvnw clean package -DskipTests -pl "!frontend" -am -B
 
-      # 4. Checkout & build EE
+      # === Build EE ===
       - name: Checkout EE (xpack)
         uses: actions/checkout@v3
         with:
           repository: cordys-dev/cordys-crm-xpack
           token: ${{ secrets.GH_TOKEN }}
-          ref: ${{ github.event.inputs.csBranch }}  # 指定EE分支
+          ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm-xpack
 
       - name: Build EE JAR
@@ -84,7 +80,7 @@ jobs:
         run: |
           ./mvnw clean package -DskipTests -B
 
-      # 5. Setup QEMU + Buildx + Login
+      # === Docker setup ===
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -98,7 +94,7 @@ jobs:
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      # 6. Build & push CE image
+      # === Build & Push CE Image ===
       - name: Build & Push CE Image
         working-directory: cordys-crm
         run: |
@@ -115,38 +111,43 @@ jobs:
             --push \
             -f installer/Dockerfile .
 
+      # === Tag CE Repository ===
       - name: Create or Re-create CE Tag
-        if: success()
-        run: |
-          git config --global user.name 'fit2-zhao'
-          git config --global user.email 'yong.zhao@fit2cloud.com'
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        needs: [build-and-push]
+        steps:
+          - name: Checkout CE for Tagging
+            uses: actions/checkout@v3
+            with:
+              repository: cordys-dev/cordys-crm
+              token: ${{ secrets.GH_TOKEN }}
+              fetch-depth: 0
+              ref: ${{ github.event.inputs.csBranch }}
+              path: cordys-crm
 
-          # 判断是否为dev标签，如果是则跳过打tag操作
-          if [[ "${{ github.event.inputs.dockerImageTag }}" != "dev" ]]; then
-            # 获取远程标签信息
-            git fetch --prune --tags
-            
-            # 检查标签是否存在（本地或远程）
-            if git ls-remote --tags origin refs/tags/${{ github.event.inputs.dockerImageTag }} | grep -q "${{ github.event.inputs.dockerImageTag }}" || git tag -l "${{ github.event.inputs.dockerImageTag }}" | grep -q "${{ github.event.inputs.dockerImageTag }}"; then
-              echo "标签 ${{ github.event.inputs.dockerImageTag }} 已存在，正在删除..."
-            
-              # 删除本地标签（如果存在）
-              git tag -d ${{ github.event.inputs.dockerImageTag }} || true
-            
-              # 删除远程标签并确认结果
-              git push --delete origin ${{ github.event.inputs.dockerImageTag }} || echo "远程标签可能不存在或已被删除"
-            
-              # 确认标签已被删除
-              sleep 2
+          - name: Configure Git
+            run: |
+              git config --global user.name 'fit2-zhao'
+              git config --global user.email 'yong.zhao@fit2cloud.com'
+
+          - name: Delete existing tag if present
+            working-directory: cordys-crm
+            run: |
+              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
               git fetch --prune --tags
-            fi
-            
-            # 创建和推送新标签
-            git tag -a ${{ github.event.inputs.dockerImageTag }} -m "Release ${{ github.event.inputs.dockerImageTag }}"
-            git push origin ${{ github.event.inputs.dockerImageTag }}
-          fi
+              if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+                git tag -d ${TAG_NAME}
+                git push origin --delete ${TAG_NAME} || true
+              fi
 
-      # 7. Build & push EE image
+          - name: Create and Push new tag
+            working-directory: cordys-crm
+            run: |
+              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+              git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+              git push origin ${TAG_NAME}
+
+      # === Build & Push EE Image ===
       - name: Build & Push EE Image
         run: |
           JAR=$(ls cordys-crm-xpack/target/*.jar | head -n1)
@@ -157,37 +158,39 @@ jobs:
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
 
-        # 创建或更新标签
+      # === Tag EE Repository ===
       - name: Create or Re-create EE Tag
-        if: success()
-        run: |
-          git config --global user.name 'fit2-zhao'
-          git config --global user.email 'yong.zhao@fit2cloud.com'
-          
-          # 判断是否为dev标签，如果是则跳过打tag操作
-          if [[ "${{ github.event.inputs.dockerImageTag }}" == "dev" ]]; then
-            echo "当前为dev标签，跳过打tag操作"
-            exit 0
-          fi
-          
-          # 获取远程标签信息
-          git fetch --prune --tags
-          
-          # 检查标签是否存在（本地或远程）
-          if git ls-remote --tags origin refs/tags/${{ github.event.inputs.dockerImageTag }} | grep -q "${{ github.event.inputs.dockerImageTag }}" || git tag -l "${{ github.event.inputs.dockerImageTag }}" | grep -q "${{ github.event.inputs.dockerImageTag }}"; then
-            echo "标签 ${{ github.event.inputs.dockerImageTag }} 已存在，正在删除..."
-          
-            # 删除本地标签（如果存在）
-            git tag -d ${{ github.event.inputs.dockerImageTag }} || true
-          
-            # 删除远程标签并确认结果
-            git push --delete origin ${{ github.event.inputs.dockerImageTag }} || echo "远程标签可能不存在或已被删除"
-          
-            # 确认标签已被删除
-            sleep 2
-            git fetch --prune --tags
-          fi
-          
-          # 创建和推送新标签
-          git tag -a ${{ github.event.inputs.dockerImageTag }} -m "Release ${{ github.event.inputs.dockerImageTag }}"
-          git push origin ${{ github.event.inputs.dockerImageTag }}
+        if: success() && github.event.inputs.dockerImageTag != 'dev'
+        needs: [build-and-push]
+        steps:
+          - name: Checkout EE for Tagging
+            uses: actions/checkout@v3
+            with:
+              repository: cordys-dev/cordys-crm-xpack
+              token: ${{ secrets.GH_TOKEN }}
+              fetch-depth: 0
+              ref: ${{ github.event.inputs.csBranch }}
+              path: cordys-crm-xpack
+
+          - name: Configure Git
+            run: |
+              git config --global user.name 'fit2-zhao'
+              git config --global user.email 'yong.zhao@fit2cloud.com'
+
+          - name: Delete existing tag if present
+            working-directory: cordys-crm-xpack
+            run: |
+              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+              git fetch --prune --tags
+              if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+                git tag -d ${TAG_NAME}
+                git push origin --delete ${TAG_NAME} || true
+              fi
+
+          - name: Create and Push new tag
+            working-directory: cordys-crm-xpack
+            run: |
+              TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+              git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+              git push origin ${TAG_NAME}
+
