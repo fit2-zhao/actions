@@ -1,0 +1,40 @@
+name: Sync image to Docker Hub (skopeo)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerImageTag:
+        description: 'Docker Image Tag'
+        default: 'dev'
+        required: true
+      src_image:
+        description: '源镜像'
+        required: true
+        default: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce:${{ github.event.inputs.dockerImageTag }}
+      dest_repo:
+        description: 'Docker Hub 仓库名（不含用户名）'
+        required: true
+        default: cordyscrm
+      dest_tag:
+        description: '目标镜像标签'
+        required: true
+        default: ${{ github.event.inputs.dockerImageTag }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy image with skopeo
+        env:
+          SRC: ${{ github.event.inputs.src_image }}
+          DEST: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.dest_repo }}:${{ github.event.inputs.dest_tag }}
+          SRC_USER: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
+          SRC_PASSWORD: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
+          DEST_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DEST_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          docker run --rm --entrypoint skopeo quay.io/skopeo/stable:latest \
+            copy \
+            --src-creds "${SRC_USER}:${SRC_PASSWORD}" \
+            --dest-creds "${DEST_USER}:${DEST_TOKEN}" \
+            docker://${SRC} docker://${DEST}
