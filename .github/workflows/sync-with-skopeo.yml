@@ -25,7 +25,7 @@ jobs:
           TAG: ${{ github.event.inputs.dockerImageTag }}
           SRC: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce:${{ github.event.inputs.dockerImageTag }}
           # 复制到本地 daemon 时用短引用（username/repo:tag），方便后续 docker tag/push
-          DEST_DAEMON: ${{ secrets.DOCKERHUB_USERNAME }}/cordys-crm-ce:${{ github.event.inputs.dockerImageTag }}
+          DEST_DAEMON: ${{ secrets.DOCKERHUB_USERNAME }}/cordys-crm:${{ github.event.inputs.dockerImageTag }}
           SRC_USER: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           SRC_PASSWORD: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
           SKOPEO_IMAGE: quay.io/skopeo/stable:v1.15.0
@@ -45,7 +45,7 @@ jobs:
       - name: Tag as latest and push both tags
         env:
           TAG: ${{ github.event.inputs.dockerImageTag }}
-          REPO: ${{ secrets.DOCKERHUB_USERNAME }}/cordys-crm-ce
+          REPO: ${{ secrets.DOCKERHUB_USERNAME }}/cordys-crm
         run: |
           set -e
           IMAGE_TAG="${REPO}:${TAG}"
