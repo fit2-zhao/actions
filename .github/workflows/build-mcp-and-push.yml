@@ -71,7 +71,7 @@ jobs:
 
       - name: Docker Buildx (build-and-push)
         run: |
-          docker buildx build --output "type=image,push=true" ${{ steps.prepare.outputs.buildx_args }} -f installer/Dockerfile
+          docker buildx build --output "type=image,push=true" ${{ steps.prepare.outputs.buildx_args }} -f Dockerfile
         # 创建或更新标签
       - name: Create or Re-create Tag
         if: success()
