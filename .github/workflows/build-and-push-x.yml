@@ -50,7 +50,8 @@ jobs:
             ~/.m2/repository
             cordys-crm/.mvn/wrapper
             cordys-crm-xpack/.mvn/wrapper
-          key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml') }}
+            cordys-crm-mcp-server/.mvn/wrapper
+          key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml', 'cordys-crm-mcp-server/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -73,6 +74,20 @@ jobs:
         run: |
           ./mvnw install -N
           ./mvnw clean install -DskipTests -pl "!frontend" -am -B
+
+      # === Build MCP ===
+      - name: Checkout MCP Server
+        uses: actions/checkout@v3
+        with:
+          repository: cordys-dev/cordys-crm-mcp-server
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}
+          path: cordys-crm-mcp-server
+
+      - name: Build MCP JAR
+        working-directory: cordys-crm-mcp-server
+        run: |
+          ./mvnw clean package -DskipTests -B
 
       # === Build EE ===
       - name: Checkout EE
@@ -102,10 +117,11 @@ jobs:
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      # === Build & Push CE Image ===
+      # === Build & Push CE Image (包含 MCP JAR) ===
       - name: Build & Push CE Image
         working-directory: cordys-crm
         run: |
+          MCP_JAR=$(ls ../cordys-crm-mcp-server/target/*.jar | head -n1)
           if [[ "${TAG}" == "dev" ]]; then
             CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
           else
@@ -116,8 +132,11 @@ jobs:
             --platform ${PLATFORMS} \
             ${CE_TAGS} \
             --build-arg CRM_VERSION=${TAG}-${SHORT_SHA} \
+            --build-arg MCP_JAR_FILE=$(basename ${MCP_JAR}) \
             --push \
             -f installer/Dockerfile .
+        env:
+          DOCKER_BUILDKIT: 1
 
       # === Tag CE Repository ===
       - name: Configure Git for Tagging
