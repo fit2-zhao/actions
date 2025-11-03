@@ -59,7 +59,7 @@ jobs:
       - name: Checkout CE
         uses: actions/checkout@v3
         with:
-          repository: cordys-dev/cordys-crm
+          repository: 1Panel-dev/CordysCRM
           token: ${{ secrets.GH_TOKEN }}
           ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm
