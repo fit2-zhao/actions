@@ -122,7 +122,7 @@ jobs:
         working-directory: cordys-crm
         run: |
           MCP_JAR=$(ls ../cordys-crm-mcp-server/target/*.jar | head -n1)
-          cp "$MCP_JAR" installer/mcp-server.jar
+          cp "$MCP_JAR" installer/mcp/mcp-server.jar
 
           if [[ "${TAG}" == "dev" ]]; then
             CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
