@@ -20,10 +20,10 @@ on:
         description: 'CE & EE Repository Branch'
         required: true
         default: 'main'
-      isCreateTag:
-        description: 'Whether to create Git tag for CE'
+      isOverride:
+        description: 'Is Override Existing Tag'
         required: false
-        default: 'false'
+        default: 'true'
 
 jobs:
   build-and-push:
@@ -146,13 +146,13 @@ jobs:
 
       # === Tag CE Repository ===
       - name: Configure Git for Tagging
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isCreateTag == 'true'
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
         run: |
           git config --global user.name 'fit2-zhao'
           git config --global user.email 'yong.zhao@fit2cloud.com'
 
       - name: Delete existing CE tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isCreateTag == 'true'
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
         working-directory: cordys-crm
         run: |
           TAG_NAME=${{ github.event.inputs.dockerImageTag }}
@@ -163,7 +163,7 @@ jobs:
           fi
 
       - name: Create and push CE tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isCreateTag == 'true'
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
         working-directory: cordys-crm
         run: |
           TAG_NAME=${{ github.event.inputs.dockerImageTag }}
@@ -183,13 +183,13 @@ jobs:
 
       # === Tag EE Repository ===
       - name: Configure Git for EE Tagging
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isCreateTag == 'true'
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
         run: |
           git config --global user.name 'fit2-zhao'
           git config --global user.email 'yong.zhao@fit2cloud.com'
 
       - name: Delete existing EE tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isCreateTag == 'true'
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
         working-directory: cordys-crm-xpack
         run: |
           TAG_NAME=${{ github.event.inputs.dockerImageTag }}
@@ -200,7 +200,7 @@ jobs:
           fi
 
       - name: Create and push EE tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isCreateTag == 'true'
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
         working-directory: cordys-crm-xpack
         run: |
           TAG_NAME=${{ github.event.inputs.dockerImageTag }}
