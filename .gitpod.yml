@@ -1,0 +1,13 @@
+tasks:
+  - init: mkdir -p /workspace/cordys
+  - command: docker run -d \
+      --name cordys-crm \
+      -p 8081:8081 \
+      -p 8082:8082 \
+      -v /workspace/cordys:/opt/cordys \
+      1panel/cordys-crm
+ports:
+  - port: 8081
+    onOpen: open-preview
+  - port: 8082
+    onOpen: open-preview
