@@ -31,7 +31,7 @@ jobs:
     env:
       REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
       CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
-      EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ee
+      EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm
       TAG: ${{ github.event.inputs.dockerImageTag }}
       PLATFORMS: ${{ github.event.inputs.architecture }}
 
