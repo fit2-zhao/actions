@@ -1,4 +1,4 @@
-name: Build and Push CE & EE Images
+name: Build and Push Cockpit Images
 
 on:
   workflow_dispatch:
