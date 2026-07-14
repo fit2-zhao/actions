@@ -55,7 +55,8 @@ jobs:
             cordys-crm/.mvn/wrapper
             cordys-crm-xpack/.mvn/wrapper
             cordys-crm-mcp-server/.mvn/wrapper
-          key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml', 'cordys-crm-mcp-server/pom.xml') }}
+            cordys-crm-cockpit/.mvn/wrapper
+          key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml', 'cordys-crm-mcp-server/pom.xml', 'cordys-crm-cockpit/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -93,6 +94,20 @@ jobs:
         run: |
           ./mvnw clean package -DskipTests -B
 
+      # === Build Cockpit ===
+      - name: Checkout Cockpit
+        uses: actions/checkout@v3
+        with:
+          repository: 1Panel-dev/CordysCRM-cockpit
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}
+          path: cordys-crm-cockpit
+
+      - name: Build Cockpit JAR
+        working-directory: cordys-crm-cockpit
+        run: |
+          ./mvnw clean package -DskipTests -B
+
       # === Build EE ===
       - name: Checkout EE
         uses: actions/checkout@v3
@@ -121,12 +136,15 @@ jobs:
           username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
           password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
 
-      # === Build & Push CE Image (包含 MCP JAR) ===
+      # === Build & Push CE Image (包含 MCP 与 Cockpit JAR) ===
       - name: Build & Push CE Image
         working-directory: cordys-crm
         run: |
           MCP_JAR=$(ls ../cordys-crm-mcp-server/target/*.jar | head -n1)
           cp "$MCP_JAR" installer/mcp/cordys-crm-mcp-server.jar
+
+          COCKPIT_JAR=$(ls ../cordys-crm-cockpit/target/*.jar | head -n1)
+          cp "$COCKPIT_JAR" installer/cockpit/cordys-crm-cockpit.jar
 
           if [[ "${TAG}" == "dev" ]]; then
             CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
