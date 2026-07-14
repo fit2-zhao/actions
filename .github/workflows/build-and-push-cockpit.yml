@@ -1,0 +1,208 @@
+name: Build and Push CE & EE Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerImageTag:
+        description: 'Docker Image Tag'
+        required: true
+        default: 'dev'
+      architecture:
+        description: 'Target Architecture'
+        required: true
+        default: 'linux/amd64'
+        type: choice
+        options:
+          - linux/amd64
+          - linux/arm64
+          - linux/amd64,linux/arm64
+      csBranch:
+        description: 'CE & EE Repository Branch'
+        required: true
+        default: 'main'
+      isOverride:
+        description: 'Is Override Existing Tag'
+        required: false
+        default: 'true'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}
+      CE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm-ce
+      EE_IMAGE: ${{ secrets.FIT2CLOUD_REGISTRY_HOST }}/cordys/cordys-crm
+      TAG: ${{ github.event.inputs.dockerImageTag }}
+      PLATFORMS: ${{ github.event.inputs.architecture }}
+
+    steps:
+      - name: Checkout CI repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Maven repository
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            cordys-crm/.mvn/wrapper
+            cordys-crm-xpack/.mvn/wrapper
+            cordys-crm-mcp-server/.mvn/wrapper
+          key: ${{ runner.os }}-maven-${{ hashFiles('cordys-crm/pom.xml', 'cordys-crm-xpack/pom.xml', 'cordys-crm-mcp-server/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # === Build CE ===
+      - name: Checkout CE
+        uses: actions/checkout@v3
+        with:
+          repository: 1Panel-dev/CordysCRM
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}
+          path: cordys-crm
+
+      - name: Clean previous CE artifacts
+        working-directory: cordys-crm
+        run: |
+          rm -rf ~/.m2/repository/io/cordys
+
+      - name: Build CE (exclude frontend)
+        working-directory: cordys-crm
+        run: |
+          ./mvnw install -N
+          ./mvnw clean install -DskipTests -pl "!frontend" -am -B
+
+      # === Build MCP ===
+      - name: Checkout MCP Server
+        uses: actions/checkout@v3
+        with:
+          repository: cordys-dev/cordys-crm-mcp-server
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}
+          path: cordys-crm-mcp-server
+
+      - name: Build MCP JAR
+        working-directory: cordys-crm-mcp-server
+        run: |
+          ./mvnw clean package -DskipTests -B
+
+      # === Build EE ===
+      - name: Checkout EE
+        uses: actions/checkout@v3
+        with:
+          repository: cordys-dev/cordys-crm-xpack
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ github.event.inputs.csBranch }}
+          path: cordys-crm-xpack
+
+      - name: Build EE JAR
+        working-directory: cordys-crm-xpack
+        run: |
+          ./mvnw clean package -DskipTests -B
+
+      # === Docker setup ===
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.FIT2CLOUD_REGISTRY_USERNAME }}
+          password: ${{ secrets.FIT2CLOUD_REGISTRY_PASSWORD }}
+
+      # === Build & Push CE Image (包含 MCP JAR) ===
+      - name: Build & Push CE Image
+        working-directory: cordys-crm
+        run: |
+          MCP_JAR=$(ls ../cordys-crm-mcp-server/target/*.jar | head -n1)
+          cp "$MCP_JAR" installer/mcp/cordys-crm-mcp-server.jar
+
+          if [[ "${TAG}" == "dev" ]]; then
+            CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
+          else
+            CE_TAGS="--tag ${CE_IMAGE}:${TAG} --tag ${CE_IMAGE}:latest"
+          fi
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
+          docker buildx build \
+            --platform ${PLATFORMS} \
+            ${CE_TAGS} \
+            --build-arg CRM_VERSION=${TAG}-${SHORT_SHA} \
+            --push \
+            -f installer/Dockerfile .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      # === Tag CE Repository ===
+      - name: Configure Git for Tagging
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
+
+      - name: Delete existing CE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
+
+      - name: Create and push CE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
+
+      # === Build & Push EE Image ===
+      - name: Build & Push EE Image
+        run: |
+          JAR=$(ls cordys-crm-xpack/target/*.jar | head -n1)
+          docker pull --platform ${{ github.event.inputs.architecture }} ${CE_IMAGE}:${TAG}
+          docker create --name temp-ce ${CE_IMAGE}:${TAG}
+          docker cp "$JAR" temp-ce:/app/lib/cordys-crm-xpack.jar
+          docker commit temp-ce ${EE_IMAGE}:${TAG}
+          docker push ${EE_IMAGE}:${TAG}
+          docker rm temp-ce
+
+      # === Tag EE Repository ===
+      - name: Configure Git for EE Tagging
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
+
+      - name: Delete existing EE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-xpack
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
+
+      - name: Create and push EE tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-xpack
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
