@@ -19,7 +19,7 @@ on:
       csBranch:
         description: 'CE & EE Repository Branch'
         required: true
-        default: 'main'
+        default: 'future'
       isOverride:
         description: 'Is Override Existing Tag'
         required: false
