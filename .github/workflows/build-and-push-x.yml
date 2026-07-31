@@ -6,7 +6,7 @@ on:
       dockerImageTag:
         description: 'Docker Image Tag'
         required: true
-        default: 'future'
+        default: 'dev'
       architecture:
         description: 'Target Architecture'
         required: true
@@ -19,7 +19,7 @@ on:
       csBranch:
         description: 'CE & EE Repository Branch'
         required: true
-        default: 'future'
+        default: 'main'
       isOverride:
         description: 'Is Override Existing Tag'
         required: false
