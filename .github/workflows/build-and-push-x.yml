@@ -1,4 +1,4 @@
-name: Build and Push Cockpit Images
+name: Build Images
 
 on:
   workflow_dispatch:
