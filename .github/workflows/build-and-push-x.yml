@@ -84,7 +84,7 @@ jobs:
       - name: Checkout MCP Server
         uses: actions/checkout@v3
         with:
-          repository: cordys-dev/cordys-crm-mcp-server
+          repository: 1Panel-dev/CordysCRM-mcp-server
           token: ${{ secrets.GH_TOKEN }}
           ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm-mcp-server
@@ -112,7 +112,7 @@ jobs:
       - name: Checkout EE
         uses: actions/checkout@v3
         with:
-          repository: cordys-dev/cordys-crm-xpack
+          repository: 1Panel-dev/CordysCRM-xpack
           token: ${{ secrets.GH_TOKEN }}
           ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm-xpack
