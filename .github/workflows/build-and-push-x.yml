@@ -143,9 +143,9 @@ jobs:
           MCP_JAR=$(ls ../cordys-crm-mcp-server/target/*.jar | head -n1)
           cp "$MCP_JAR" installer/mcp/cordys-crm-mcp-server.jar
 
-          COCKPIT_JAR=$(ls ../cordys-crm-cockpit/target/*.jar | head -n1)
-          cp "$COCKPIT_JAR" installer/cockpit/cordys-crm-cockpit.jar
-
+          cp ../cordys-crm-cockpit/cockpit-app/target/cordys-crm-cockpit-dev.jar \
+          installer/cockpit/cordys-crm-cockpit.jar
+          
           if [[ "${TAG}" == "dev" || "${TAG}" == "future" ]]; then
             CE_TAGS="--tag ${CE_IMAGE}:${TAG}"
           else
