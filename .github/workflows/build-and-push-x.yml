@@ -94,6 +94,31 @@ jobs:
         run: |
           ./mvnw clean package -DskipTests -B
 
+      - name: Configure Git for Tagging
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        run: |
+          git config --global user.name 'fit2-zhao'
+          git config --global user.email 'yong.zhao@fit2cloud.com'
+
+      - name: Delete existing MCP tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-mcp-server
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
+
+      - name: Create and push MCP tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-mcp-server
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
+
       # === Build Cockpit ===
       - name: Checkout Cockpit
         uses: actions/checkout@v3
@@ -108,6 +133,25 @@ jobs:
         run: |
           ./mvnw clean package -DskipTests -B
 
+      - name: Delete existing Cockpit tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-cockpit
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
+
+      - name: Create and push Cockpit tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-cockpit
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
+
       # === Build EE ===
       - name: Checkout EE
         uses: actions/checkout@v3
@@ -121,6 +165,26 @@ jobs:
         working-directory: cordys-crm-xpack
         run: |
           ./mvnw clean package -DskipTests -B
+
+      # === Tag Xpack Repository ===
+      - name: Delete existing Xpack tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-xpack
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git fetch --prune --tags
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            git tag -d ${TAG_NAME}
+            git push origin --delete ${TAG_NAME} || true
+          fi
+
+      - name: Create and push Xpack tag
+        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
+        working-directory: cordys-crm-xpack
+        run: |
+          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
+          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
+          git push origin ${TAG_NAME}
 
       # === Docker setup ===
       - name: Set up QEMU
@@ -163,12 +227,6 @@ jobs:
           DOCKER_BUILDKIT: 1
 
       # === Tag CE Repository ===
-      - name: Configure Git for Tagging
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
-        run: |
-          git config --global user.name 'fit2-zhao'
-          git config --global user.email 'yong.zhao@fit2cloud.com'
-
       - name: Delete existing CE tag
         if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
         working-directory: cordys-crm
@@ -198,29 +256,3 @@ jobs:
           docker commit temp-ce ${EE_IMAGE}:${TAG}
           docker push ${EE_IMAGE}:${TAG}
           docker rm temp-ce
-
-      # === Tag EE Repository ===
-      - name: Configure Git for EE Tagging
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
-        run: |
-          git config --global user.name 'fit2-zhao'
-          git config --global user.email 'yong.zhao@fit2cloud.com'
-
-      - name: Delete existing EE tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
-        working-directory: cordys-crm-xpack
-        run: |
-          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
-          git fetch --prune --tags
-          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
-            git tag -d ${TAG_NAME}
-            git push origin --delete ${TAG_NAME} || true
-          fi
-
-      - name: Create and push EE tag
-        if: success() && github.event.inputs.dockerImageTag != 'dev' && github.event.inputs.dockerImageTag != 'future' && github.event.inputs.isOverride == 'false'
-        working-directory: cordys-crm-xpack
-        run: |
-          TAG_NAME=${{ github.event.inputs.dockerImageTag }}
-          git tag -a ${TAG_NAME} -m "Release ${TAG_NAME}"
-          git push origin ${TAG_NAME}
