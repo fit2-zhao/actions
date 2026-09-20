@@ -216,11 +216,7 @@ jobs:
 
           rm -rf installer/cockpit
           mkdir -p installer/cockpit
-          cp ../cordys-crm-cockpit/package.json \
-             ../cordys-crm-cockpit/package-lock.json \
-             ../cordys-crm-cockpit/tsconfig.json \
-             installer/cockpit/
-          cp -R ../cordys-crm-cockpit/src \
+          cp -R ../cordys-crm-cockpit/bundle \
                 ../cordys-crm-cockpit/skills \
                 installer/cockpit/
 
