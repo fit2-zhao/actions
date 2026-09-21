@@ -126,6 +126,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           ref: ${{ github.event.inputs.csBranch }}
           path: cordys-crm-cockpit
+          clean: true
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v4
@@ -138,6 +139,7 @@ jobs:
         working-directory: cordys-crm-cockpit
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
+          rm -rf dist bundle
           npm test
 
       - name: Delete existing Cockpit tag
