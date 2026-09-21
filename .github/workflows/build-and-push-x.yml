@@ -222,6 +222,7 @@ jobs:
              installer/cockpit/
           cp -R ../cordys-crm-cockpit/src \
                 ../cordys-crm-cockpit/skills \
+                ../cordys-crm-cockpit/public \
                 installer/cockpit/
 
           if [[ "${TAG}" == "dev" || "${TAG}" == "future" ]]; then
