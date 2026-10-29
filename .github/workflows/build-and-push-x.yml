@@ -229,12 +229,24 @@ jobs:
           fi
           SHORT_SHA=$(git rev-parse --short HEAD)
 
-          docker buildx build \
-            --platform ${PLATFORMS} \
-            ${CE_TAGS} \
-            --build-arg CRM_VERSION=${TAG}-${SHORT_SHA} \
-            --push \
-            -f installer/Dockerfile .
+          for attempt in {1..5}; do
+            echo "Building and pushing CE image (attempt ${attempt}/5)..."
+            if docker buildx build \
+              --platform ${PLATFORMS} \
+              ${CE_TAGS} \
+              --build-arg CRM_VERSION=${TAG}-${SHORT_SHA} \
+              --push \
+              -f installer/Dockerfile .; then
+              break
+            fi
+            if [ "${attempt}" -eq 5 ]; then
+              echo "::error::Failed to build and push CE image after 5 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Failed to build and push CE image; retrying in ${delay}s..."
+            sleep "${delay}"
+          done
         env:
           DOCKER_BUILDKIT: 1
 
@@ -262,9 +274,33 @@ jobs:
       - name: Build & Push EE Image
         run: |
           JAR=$(ls cordys-crm-xpack/target/*.jar | head -n1)
-          docker pull --platform ${{ github.event.inputs.architecture }} ${CE_IMAGE}:${TAG}
+          for attempt in {1..5}; do
+            echo "Pulling CE image (attempt ${attempt}/5)..."
+            if docker pull --platform "${PLATFORMS}" "${CE_IMAGE}:${TAG}"; then
+              break
+            fi
+            if [ "${attempt}" -eq 5 ]; then
+              echo "::error::Failed to pull CE image after 5 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Failed to pull CE image; retrying in ${delay}s..."
+            sleep "${delay}"
+          done
           docker create --name temp-ce ${CE_IMAGE}:${TAG}
           docker cp "$JAR" temp-ce:/app/lib/cordys-crm-xpack.jar
           docker commit temp-ce ${EE_IMAGE}:${TAG}
-          docker push ${EE_IMAGE}:${TAG}
+          for attempt in {1..5}; do
+            echo "Pushing EE image (attempt ${attempt}/5)..."
+            if docker push "${EE_IMAGE}:${TAG}"; then
+              break
+            fi
+            if [ "${attempt}" -eq 5 ]; then
+              echo "::error::Failed to push EE image after 5 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Failed to push EE image; retrying in ${delay}s..."
+            sleep "${delay}"
+          done
           docker rm temp-ce
